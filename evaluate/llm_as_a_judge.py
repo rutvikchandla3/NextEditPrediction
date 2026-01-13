@@ -1,24 +1,43 @@
 import os
 import json
 import asyncio
+import time
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from prompts import LLM_AS_A_JUDGE_PROMPT
 
 load_dotenv()
 
-openai_client = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
+# Use Portkey as the API gateway
+portkey_client = AsyncOpenAI(
+    api_key=os.getenv("PORTKEY_API_KEY"),
+    base_url="https://api.portkey.ai/v1",
 )
 
+# Rate limiter: 100 requests per minute = 0.6 seconds between requests
+class RateLimiter:
+    def __init__(self, requests_per_minute):
+        self.min_interval = 60.0 / requests_per_minute
+        self.last_request_time = 0
+
+    async def wait(self):
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        if time_since_last < self.min_interval:
+            await asyncio.sleep(self.min_interval - time_since_last)
+        self.last_request_time = time.time()
+
+rate_limiter = RateLimiter(100)  # 100 requests per minute
+
 async def send_request(prompt: str, model: str, client: AsyncOpenAI):
+    await rate_limiter.wait()  # Apply rate limiting
     response = await client.chat.completions.create(
         messages=[
             {"role": "user", "content": prompt},
         ],
         model=model,
     )
-    
+
     return response.choices[0].message.content
 
 async def main():
@@ -26,45 +45,10 @@ async def main():
     os.makedirs(llm_as_a_judge_results_dir, exist_ok=True)
 
     models = [
-        "gpt-4o", # gpt-4o-2024-08-06
-        "gpt-4o-mini", # gpt-4o-mini-2024-07-18
-        "gpt-4.1", # gpt-4.1-2025-04-14
-        "gpt-4.1-mini", # gpt-4.1-mini-2025-04-14
-        "gpt-4.1-nano", # gpt-4.1-nano-2025-04-14
-
-        "claude-opus-4-20250514",
-        "claude-sonnet-4-20250514",
-        "claude-3-7-sonnet-20250219",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-haiku-20241022",
-
-        "gemini-2.5-pro",
-        "gemini-2.5-flash",
-
-        "deepseek-chat", # DeepSeek-V3-0324
-        "deepseek-reasoner", # DeepSeek-R1-0528
-
-        "Qwen2.5-Coder-3B-NEP",
-        "Qwen2.5-Coder-7B-NEP",
-        "Qwen2.5-Coder-14B-NEP",
-        "Qwen2.5-Coder-32B-NEP",
-
-        "codegemma-2b-NEP",
-        "codegemma-7b-NEP",
-
-        "Codestral-22B-v0.1-NEP",
-
-        "Qwen2.5-Coder-3B",
-        "Qwen2.5-Coder-7B",
-        "Qwen2.5-Coder-14B",
-
-        "Codestral-22B-v0.1",
-
-        "Qwen2.5-Coder-7B-Instruct",
-        "codegemma-7b-it",
-
-        "Qwen2.5-Coder-7B-Instruct-NEP",
-        "codegemma-7b-it-NEP",
+        # Models to test
+        # "gpt-4.1",
+        # "claude-haiku-4-5-20250514",
+        "gemini-3-flash-preview",
     ]
 
     for model in models:
@@ -81,7 +65,8 @@ async def main():
         with open(f"generation_results/{model}_generation_results.jsonl", "r") as f:
             for index, line in enumerate(f):
                 result = json.loads(line)
-                prompt = prompt_list[index]
+                # prompt = prompt_list[index]
+                prompt = result['prompt']
                 ground_truth = result['ground_truth']
                 model_output = result['model_output']
 
@@ -93,14 +78,12 @@ async def main():
 
                 evaluation_prompt_list.append(evaluation_prompt)
 
-        batch_size = 50
         responses = []
-        for i in range(0, len(evaluation_prompt_list), batch_size):
-            batch_prompts = evaluation_prompt_list[i:i + batch_size]
-            batch_requests = [send_request(prompt, "gpt-4.1-mini", openai_client) for prompt in batch_prompts]
-            batch_responses = await asyncio.gather(*batch_requests)
-            responses.extend(batch_responses)
-            print(f"Processed {i + len(batch_responses)} responses out of {len(evaluation_prompt_list)}")
+        for i, prompt in enumerate(evaluation_prompt_list):
+            response = await send_request(prompt, "gpt-4.1", portkey_client)
+            responses.append(response)
+            if (i + 1) % 10 == 0:  # Progress update every 10 requests
+                print(f"Processed {i + 1} / {len(evaluation_prompt_list)} requests")
 
         correct_predictions = 0
         for i, response in enumerate(responses):

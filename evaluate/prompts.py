@@ -100,18 +100,29 @@ Note that you MUST follow the following rules:
 consistent with the existing code. Do not skip any lines.
 """
 
-LLM_AS_A_JUDGE_PROMPT = """### Task Description
-I'm evaluating the model's ability to make code edit predictions. \
-I will give you the original prompt, please compare the ground truth with the \
-model's output to determine whether the model gives a reasonable prediction, \
-and respond with "yes" or "no" accordingly, without any additional explanation.
+LLM_AS_A_JUDGE_PROMPT = """You are evaluating whether a model's code edit prediction is reasonable.
 
-### Original Prompt
+Compare the Ground Truth with the Model Output below. Do they represent the same or equivalent code change?
+
+Respond with exactly one word: "yes" or "no"
+
+Do NOT output any code, explanations, or other text.
+
+---
+
+Original Prompt:
 {prompt}
 
-### Ground Truth
+---
+
+Ground Truth:
 {ground_truth}
 
-### Model Output
+---
+
+Model Output:
 {model_output}
-"""
+
+---
+
+Your judgment (yes/no):"""

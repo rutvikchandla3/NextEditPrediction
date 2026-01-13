@@ -105,45 +105,10 @@ def main():
         original_code_list = [json.loads(line)["current_contents"] for line in lines]
 
     models = [
-        "gpt-4o", # gpt-4o-2024-08-06
-        "gpt-4o-mini", # gpt-4o-mini-2024-07-18
-        "gpt-4.1", # gpt-4.1-2025-04-14
-        "gpt-4.1-mini", # gpt-4.1-mini-2025-04-14
-        "gpt-4.1-nano", # gpt-4.1-nano-2025-04-14
-
-        "claude-opus-4-20250514",
-        "claude-sonnet-4-20250514",
-        "claude-3-7-sonnet-20250219",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-haiku-20241022",
-
-        "gemini-2.5-pro",
-        "gemini-2.5-flash",
-
-        "deepseek-chat", # DeepSeek-V3-0324
-        "deepseek-reasoner", # DeepSeek-R1-0528
-
-        "Qwen2.5-Coder-3B-NEP",
-        "Qwen2.5-Coder-7B-NEP",
-        "Qwen2.5-Coder-14B-NEP",
-        "Qwen2.5-Coder-32B-NEP",
-
-        "codegemma-2b-NEP",
-        "codegemma-7b-NEP",
-
-        "Codestral-22B-v0.1-NEP",
-
-        "Qwen2.5-Coder-3B",
-        "Qwen2.5-Coder-7B",
-        "Qwen2.5-Coder-14B",
-
-        "Codestral-22B-v0.1",
-
-        "Qwen2.5-Coder-7B-Instruct",
-        "codegemma-7b-it",
-
-        "Qwen2.5-Coder-7B-Instruct-NEP",
-        "codegemma-7b-it-NEP",
+        # Models to test
+        "gpt-4.1",
+        "claude-haiku-4-5-20250514",
+        "gemini-3-flash-preview",
     ]
 
     summary = []
