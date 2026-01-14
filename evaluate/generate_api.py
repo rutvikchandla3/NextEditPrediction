@@ -5,30 +5,17 @@ import asyncio
 import time
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from anthropic import AsyncAnthropic
-import httpx
-from google.genai.client import Client
-from google.genai.types import GenerateContentConfig, HttpOptions
 from tqdm.asyncio import tqdm_asyncio
 from prompts import SYSTEM_INSTRUCTION, PROMPT_TEMPLATE
 
 load_dotenv()
 
-openai_client = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-)
-
-anthropic_client = AsyncAnthropic(
-    api_key=os.getenv("ANTHROPIC_API_KEY"),
-)
-
-gemini_client = Client(
-    api_key=os.getenv("GEMINI_API_KEY"),
-    http_options=HttpOptions(
-        asyncClientArgs={
-            "limits": httpx.Limits(max_connections=100, max_keepalive_connections=20)
-        }
-    ),
+portkey_client = AsyncOpenAI(
+    api_key=os.getenv("PORTKEY_API_KEY"),
+    base_url="https://api.portkey.ai/v1",
+    default_headers={
+        "x-portkey-config": "pc-defaul-f995c3",
+    }
 )
 
 deepseek_client = AsyncOpenAI(
@@ -44,57 +31,23 @@ async def send_request(client, model_name, model_group, prompt):
 
     start_time = time.perf_counter()
 
-    if model_group == "openai" or model_group == "deepseek":
-        completion = await client.chat.completions.create(
-            model=model_name,
-            max_tokens=MAX_OUTPUT_TOKENS,
-            messages=[
-                {"role": "system", "content": SYSTEM_INSTRUCTION},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        end_time = time.perf_counter()
-        print(completion)
-        response = completion.choices[0].message.content
-        metrics = {
-            "input_tokens": completion.usage.prompt_tokens,
-            "output_tokens": completion.usage.completion_tokens,
-            "total_tokens": completion.usage.total_tokens,
-        }
-    elif model_group == "anthropic":
-        completion = await client.messages.create(
-            model=model_name,
-            max_tokens=MAX_OUTPUT_TOKENS,
-            system=SYSTEM_INSTRUCTION,
-            messages=[
-                {"role": "user", "content": prompt},
-            ],
-        )
-        end_time = time.perf_counter()
-        print(completion)
-        response = completion.content[0].text
-        metrics = {
-            "input_tokens": completion.usage.input_tokens,
-            "output_tokens": completion.usage.output_tokens,
-            "total_tokens": completion.usage.input_tokens + completion.usage.output_tokens,
-        }
-    elif model_group == "gemini":
-        completion = await client.aio.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                max_output_tokens=MAX_OUTPUT_TOKENS,
-            ),
-        )
-        end_time = time.perf_counter()
-        # print(completion.text)
-        response = completion.text
-        metrics = {
-            "input_tokens": completion.usage_metadata.prompt_token_count,
-            "output_tokens": completion.usage_metadata.candidates_token_count,
-            "total_tokens": completion.usage_metadata.total_token_count,
-        }
+    # All model groups now use OpenAI-compatible interface through Portkey
+    completion = await client.chat.completions.create(
+        model=model_name,
+        max_tokens=MAX_OUTPUT_TOKENS,
+        messages=[
+            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    end_time = time.perf_counter()
+    # print(completion)
+    response = completion.choices[0].message.content
+    metrics = {
+        "input_tokens": completion.usage.prompt_tokens,
+        "output_tokens": completion.usage.completion_tokens,
+        "total_tokens": completion.usage.total_tokens,
+    }
 
     latency_ms = (end_time - start_time) * 1000
     metrics["latency_ms"] = latency_ms
@@ -170,7 +123,7 @@ async def main():
     openai_models = [
         # "gpt-4o", # gpt-4o-2024-08-06
         # "gpt-4o-mini", # gpt-4o-mini-2024-07-18
-        "gpt-4.1", # gpt-4.1-2025-04-14
+        # "gpt-4.1", # gpt-4.1-2025-04-14
         # "gpt-4.1-mini", # gpt-4.1-mini-2025-04-14
         # "gpt-4.1-nano", # gpt-4.1-nano-2025-04-14
     ]
@@ -181,13 +134,13 @@ async def main():
         # "claude-3-7-sonnet-20250219",
         # "claude-3-5-sonnet-20241022",
         # "claude-3-5-haiku-20241022",
-        "claude-haiku-4-5-20250514",  # Claude 4.5 Haiku
+        "claude-haiku-4-5-20251001",  # Claude 4.5 Haiku
     ]
 
     gemini_models = [
         # "gemini-2.5-pro",
         # "gemini-2.5-flash",
-        "gemini-3-flash-preview",  # Gemini 3 Flash Preview
+        # "gemini-3-flash-preview",  # Gemini 3 Flash Preview
     ]
 
     deepseek_models = [
@@ -202,11 +155,11 @@ async def main():
         print(f"Processing model: {model}")
         # Determine the client and model group based on the model name
         if model in openai_models:
-            client, model_group = openai_client, "openai"
+            client, model_group = portkey_client, "openai"
         elif model in anthropic_models:
-            client, model_group = anthropic_client, "anthropic"
+            client, model_group = portkey_client, "anthropic"
         elif model in gemini_models:
-            client, model_group = gemini_client, "gemini"
+            client, model_group = portkey_client, "gemini"
         elif model in deepseek_models:
             client, model_group = deepseek_client, "deepseek"
 
